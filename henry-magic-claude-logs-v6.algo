@@ -110,41 +110,56 @@ namespace cAlgo.Robots
             {
                 Print("⚠️ ALERTA: Stop Loss no válido o demasiado cercano. Operación cancelada por seguridad.");
                 Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-                return;
+                return; // *** IMPORTANTE: Sale de la función sin ejecutar la orden ***
             }
             
             double lotSize = CalculateLotSize(stopLossPrice, amount, TradeType.Buy);
             Print($"Lot Size calculado: {lotSize}");
-            
-            // Verificar si el lotaje calculado es válido, si no usar el mínimo
-            if (lotSize <= 0)
-            {
-                Print("⚠️ ALERTA: Error en cálculo de lotaje. Usando lotaje mínimo por seguridad.");
-                Chart.DrawStaticText("AlertText", "⚠️ AVISO: Usando lotaje mínimo", VerticalAlignment.Center, HorizontalAlignment.Center, "Orange");
-                lotSize = MINIMUM_LOT_SIZE;
-            }
             
             // Validar que el lotaje sea válido
             if (!IsValidLotSize(lotSize))
             {
                 Print("⚠️ ALERTA: Lotaje calculado no válido. Operación cancelada por seguridad.");
                 Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Lotaje no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-                return;
+                return; // *** IMPORTANTE: Sale de la función sin ejecutar la orden ***
             }
             
             try
             {
-                // Verificar nuevamente que el SL sea válido antes de ejecutar
-                if (!IsValidStopLoss(stopLossInPips, TradeType.Buy))
+                // Verificación adicional antes de ejecutar la orden
+                if (stopLossInPips <= 0 || double.IsNaN(stopLossInPips) || double.IsInfinity(stopLossInPips))
                 {
-                    Print("⚠️ ALERTA: Stop Loss no válido antes de ejecutar. Operación cancelada por seguridad.");
-                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                    Print("⚠️ ALERTA: Stop Loss inválido detectado justo antes de la ejecución. Operación cancelada.");
+                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss inválido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
                     return;
                 }
                 
                 // Usar StopLoss en PIPS
                 var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, lotSize, "Buy CYE", stopLossInPips, null);
-                VerifyOrderExecution(result, stopLossInPips);
+                
+                // Verificar que la orden se ejecutó correctamente
+                if (result.IsSuccessful)
+                {
+                    // Verificar específicamente que el stop loss se haya establecido
+                    if (!result.Position.StopLoss.HasValue)
+                    {
+                        Print("⚠️ ALERTA: La orden se ejecutó pero el Stop Loss no se estableció. Cerrando posición inmediatamente.");
+                        ClosePosition(result.Position);
+                        Chart.DrawStaticText("AlertText", "⚠️ ALERTA: Orden sin Stop Loss - Posición cerrada", VerticalAlignment.Center, HorizontalAlignment.Center, "Orange");
+                        return;
+                    }
+                    
+                    // Todo correcto, mostrar información
+                    Print($"Orden ejecutada correctamente. Position ID: {result.Position.Id}");
+                    Print($"Precio de entrada: {result.Position.EntryPrice}");
+                    Print($"Stop Loss establecido: {result.Position.StopLoss}");
+                    Chart.DrawStaticText("SuccessText", "✅ OPERACIÓN EJECUTADA CORRECTAMENTE", VerticalAlignment.Center, HorizontalAlignment.Center, "Green");
+                }
+                else
+                {
+                    Print($"Error al ejecutar la orden: {result.Error}");
+                    Chart.DrawStaticText("ErrorText", $"⚠️ ERROR: {result.Error}", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                }
             }
             catch (Exception ex)
             {
@@ -181,41 +196,56 @@ namespace cAlgo.Robots
             {
                 Print("⚠️ ALERTA: Stop Loss no válido o demasiado cercano. Operación cancelada por seguridad.");
                 Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-                return;
+                return; // *** IMPORTANTE: Sale de la función sin ejecutar la orden ***
             }
             
             double lotSize = CalculateLotSize(stopLossPrice, amount, TradeType.Sell);
             Print($"Lot Size calculado: {lotSize}");
-            
-            // Verificar si el lotaje calculado es válido, si no usar el mínimo
-            if (lotSize <= 0)
-            {
-                Print("⚠️ ALERTA: Error en cálculo de lotaje. Usando lotaje mínimo por seguridad.");
-                Chart.DrawStaticText("AlertText", "⚠️ AVISO: Usando lotaje mínimo", VerticalAlignment.Center, HorizontalAlignment.Center, "Orange");
-                lotSize = MINIMUM_LOT_SIZE;
-            }
             
             // Validar que el lotaje sea válido
             if (!IsValidLotSize(lotSize))
             {
                 Print("⚠️ ALERTA: Lotaje calculado no válido. Operación cancelada por seguridad.");
                 Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Lotaje no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-                return;
+                return; // *** IMPORTANTE: Sale de la función sin ejecutar la orden ***
             }
             
             try
             {
-                // Verificar nuevamente que el SL sea válido antes de ejecutar
-                if (!IsValidStopLoss(stopLossInPips, TradeType.Sell))
+                // Verificación adicional antes de ejecutar la orden
+                if (stopLossInPips <= 0 || double.IsNaN(stopLossInPips) || double.IsInfinity(stopLossInPips))
                 {
-                    Print("⚠️ ALERTA: Stop Loss no válido antes de ejecutar. Operación cancelada por seguridad.");
-                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                    Print("⚠️ ALERTA: Stop Loss inválido detectado justo antes de la ejecución. Operación cancelada.");
+                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss inválido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
                     return;
                 }
                 
                 // Usar StopLoss en PIPS
                 var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, lotSize, "Sell CYE", stopLossInPips, null);
-                VerifyOrderExecution(result, stopLossInPips);
+                
+                // Verificar que la orden se ejecutó correctamente
+                if (result.IsSuccessful)
+                {
+                    // Verificar específicamente que el stop loss se haya establecido
+                    if (!result.Position.StopLoss.HasValue)
+                    {
+                        Print("⚠️ ALERTA: La orden se ejecutó pero el Stop Loss no se estableció. Cerrando posición inmediatamente.");
+                        ClosePosition(result.Position);
+                        Chart.DrawStaticText("AlertText", "⚠️ ALERTA: Orden sin Stop Loss - Posición cerrada", VerticalAlignment.Center, HorizontalAlignment.Center, "Orange");
+                        return;
+                    }
+                    
+                    // Todo correcto, mostrar información
+                    Print($"Orden ejecutada correctamente. Position ID: {result.Position.Id}");
+                    Print($"Precio de entrada: {result.Position.EntryPrice}");
+                    Print($"Stop Loss establecido: {result.Position.StopLoss}");
+                    Chart.DrawStaticText("SuccessText", "✅ OPERACIÓN EJECUTADA CORRECTAMENTE", VerticalAlignment.Center, HorizontalAlignment.Center, "Green");
+                }
+                else
+                {
+                    Print($"Error al ejecutar la orden: {result.Error}");
+                    Chart.DrawStaticText("ErrorText", $"⚠️ ERROR: {result.Error}", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                }
             }
             catch (Exception ex)
             {
@@ -253,41 +283,56 @@ namespace cAlgo.Robots
             {
                 Print("⚠️ ALERTA: Stop Loss no válido o demasiado cercano. Operación cancelada por seguridad.");
                 Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-                return;
+                return; // *** IMPORTANTE: Sale de la función sin ejecutar la orden ***
             }
             
             double lotSize = CalculateLotSize(stopLossPrice, amount, TradeType.Buy);
             Print($"Lot Size calculado: {lotSize}");
-            
-            // Verificar si el lotaje calculado es válido, si no usar el mínimo
-            if (lotSize <= 0)
-            {
-                Print("⚠️ ALERTA: Error en cálculo de lotaje. Usando lotaje mínimo por seguridad.");
-                Chart.DrawStaticText("AlertText", "⚠️ AVISO: Usando lotaje mínimo", VerticalAlignment.Center, HorizontalAlignment.Center, "Orange");
-                lotSize = MINIMUM_LOT_SIZE;
-            }
             
             // Validar que el lotaje sea válido
             if (!IsValidLotSize(lotSize))
             {
                 Print("⚠️ ALERTA: Lotaje calculado no válido. Operación cancelada por seguridad.");
                 Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Lotaje no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-                return;
+                return; // *** IMPORTANTE: Sale de la función sin ejecutar la orden ***
             }
             
             try
             {
-                // Verificar nuevamente que el SL sea válido antes de ejecutar
-                if (!IsValidStopLoss(stopLossInPips, TradeType.Buy))
+                // Verificación adicional antes de ejecutar la orden
+                if (stopLossInPips <= 0 || double.IsNaN(stopLossInPips) || double.IsInfinity(stopLossInPips))
                 {
-                    Print("⚠️ ALERTA: Stop Loss no válido antes de ejecutar. Operación cancelada por seguridad.");
-                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                    Print("⚠️ ALERTA: Stop Loss inválido detectado justo antes de la ejecución. Operación cancelada.");
+                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss inválido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
                     return;
                 }
                 
                 // Usar StopLoss en PIPS
                 var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, lotSize, "Buy CC", stopLossInPips, null);
-                VerifyOrderExecution(result, stopLossInPips);
+                
+                // Verificar que la orden se ejecutó correctamente
+                if (result.IsSuccessful)
+                {
+                    // Verificar específicamente que el stop loss se haya establecido
+                    if (!result.Position.StopLoss.HasValue)
+                    {
+                        Print("⚠️ ALERTA: La orden se ejecutó pero el Stop Loss no se estableció. Cerrando posición inmediatamente.");
+                        ClosePosition(result.Position);
+                        Chart.DrawStaticText("AlertText", "⚠️ ALERTA: Orden sin Stop Loss - Posición cerrada", VerticalAlignment.Center, HorizontalAlignment.Center, "Orange");
+                        return;
+                    }
+                    
+                    // Todo correcto, mostrar información
+                    Print($"Orden ejecutada correctamente. Position ID: {result.Position.Id}");
+                    Print($"Precio de entrada: {result.Position.EntryPrice}");
+                    Print($"Stop Loss establecido: {result.Position.StopLoss}");
+                    Chart.DrawStaticText("SuccessText", "✅ OPERACIÓN EJECUTADA CORRECTAMENTE", VerticalAlignment.Center, HorizontalAlignment.Center, "Green");
+                }
+                else
+                {
+                    Print($"Error al ejecutar la orden: {result.Error}");
+                    Chart.DrawStaticText("ErrorText", $"⚠️ ERROR: {result.Error}", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                }
             }
             catch (Exception ex)
             {
@@ -325,41 +370,56 @@ namespace cAlgo.Robots
             {
                 Print("⚠️ ALERTA: Stop Loss no válido o demasiado cercano. Operación cancelada por seguridad.");
                 Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-                return;
+                return; // *** IMPORTANTE: Sale de la función sin ejecutar la orden ***
             }
             
             double lotSize = CalculateLotSize(stopLossPrice, amount, TradeType.Sell);
             Print($"Lot Size calculado: {lotSize}");
-            
-            // Verificar si el lotaje calculado es válido, si no usar el mínimo
-            if (lotSize <= 0)
-            {
-                Print("⚠️ ALERTA: Error en cálculo de lotaje. Usando lotaje mínimo por seguridad.");
-                Chart.DrawStaticText("AlertText", "⚠️ AVISO: Usando lotaje mínimo", VerticalAlignment.Center, HorizontalAlignment.Center, "Orange");
-                lotSize = MINIMUM_LOT_SIZE;
-            }
             
             // Validar que el lotaje sea válido
             if (!IsValidLotSize(lotSize))
             {
                 Print("⚠️ ALERTA: Lotaje calculado no válido. Operación cancelada por seguridad.");
                 Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Lotaje no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-                return;
+                return; // *** IMPORTANTE: Sale de la función sin ejecutar la orden ***
             }
             
             try
             {
-                // Verificar nuevamente que el SL sea válido antes de ejecutar
-                if (!IsValidStopLoss(stopLossInPips, TradeType.Sell))
+                // Verificación adicional antes de ejecutar la orden
+                if (stopLossInPips <= 0 || double.IsNaN(stopLossInPips) || double.IsInfinity(stopLossInPips))
                 {
-                    Print("⚠️ ALERTA: Stop Loss no válido antes de ejecutar. Operación cancelada por seguridad.");
-                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                    Print("⚠️ ALERTA: Stop Loss inválido detectado justo antes de la ejecución. Operación cancelada.");
+                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss inválido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
                     return;
                 }
                 
                 // Usar StopLoss en PIPS
                 var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, lotSize, "Sell CC", stopLossInPips, null);
-                VerifyOrderExecution(result, stopLossInPips);
+                
+                // Verificar que la orden se ejecutó correctamente
+                if (result.IsSuccessful)
+                {
+                    // Verificar específicamente que el stop loss se haya establecido
+                    if (!result.Position.StopLoss.HasValue)
+                    {
+                        Print("⚠️ ALERTA: La orden se ejecutó pero el Stop Loss no se estableció. Cerrando posición inmediatamente.");
+                        ClosePosition(result.Position);
+                        Chart.DrawStaticText("AlertText", "⚠️ ALERTA: Orden sin Stop Loss - Posición cerrada", VerticalAlignment.Center, HorizontalAlignment.Center, "Orange");
+                        return;
+                    }
+                    
+                    // Todo correcto, mostrar información
+                    Print($"Orden ejecutada correctamente. Position ID: {result.Position.Id}");
+                    Print($"Precio de entrada: {result.Position.EntryPrice}");
+                    Print($"Stop Loss establecido: {result.Position.StopLoss}");
+                    Chart.DrawStaticText("SuccessText", "✅ OPERACIÓN EJECUTADA CORRECTAMENTE", VerticalAlignment.Center, HorizontalAlignment.Center, "Green");
+                }
+                else
+                {
+                    Print($"Error al ejecutar la orden: {result.Error}");
+                    Chart.DrawStaticText("ErrorText", $"⚠️ ERROR: {result.Error}", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                }
             }
             catch (Exception ex)
             {
@@ -396,7 +456,7 @@ namespace cAlgo.Robots
             Print($"Valor del pip: {pipValue}");
             Print($"Monto de riesgo: {riskAmount}");
             
-            // Verificar si hay un posible error de división por cero o valores inválidos
+            // Verificar si hay un posible error de división por cero
             if (pipsRisk <= 0 || pipValue <= 0 || double.IsNaN(pipsRisk) || double.IsInfinity(pipsRisk))
             {
                 Print("⚠️ ADVERTENCIA! Valores no válidos para el cálculo del lotaje");
@@ -417,13 +477,6 @@ namespace cAlgo.Robots
             // Reducir el lotaje un 10% para compensar posibles desajustes
             lotSize = lotSize * 0.9;
             Print($"Lotaje ajustado (-10%): {lotSize}");
-            
-            // Verificar si el lotaje es demasiado grande (más de 1.0)
-            if (lotSize > 1.0)
-            {
-                Print("⚠️ ADVERTENCIA! Lotaje demasiado grande. Limitando a 1.0 por seguridad");
-                lotSize = 1.0; // Limitar el lotaje a 1.0 por seguridad
-            }
             
             // Normalizar el lotaje a 2 decimales
             double roundedLotSize = Math.Round(lotSize, 2);
@@ -448,13 +501,6 @@ namespace cAlgo.Robots
                 return false;
             }
             
-            // Verificar que el stop loss no sea demasiado grande (más de 100 pips)
-            if (stopLossInPips > 100)
-            {
-                Print($"⚠️ Stop Loss demasiado grande: {stopLossInPips} pips (máximo recomendado: 100 pips)");
-                return false;
-            }
-            
             return true;
         }
         
@@ -467,44 +513,7 @@ namespace cAlgo.Robots
                 return false;
             }
             
-            // Verificar que el lotaje no sea excesivamente grande
-            if (lotSize > 1.0)
-            {
-                Print("⚠️ Lotaje demasiado grande: " + lotSize);
-                return false;
-            }
-            
             return true;
-        }
-        
-        private void VerifyOrderExecution(TradeResult result, double expectedStopLossInPips)
-        {
-            if (result.IsSuccessful)
-            {
-                Print($"Orden ejecutada correctamente. Position ID: {result.Position.Id}");
-                Print($"Precio de entrada: {result.Position.EntryPrice}");
-                
-                // Verificar que el stop loss se haya establecido correctamente
-                if (result.Position.StopLoss.HasValue)
-                {
-                    Print($"Stop Loss: {result.Position.StopLoss}");
-                    
-                    // Todo correcto, mantener la posición
-                    Chart.DrawStaticText("SuccessText", "✅ OPERACIÓN EJECUTADA CORRECTAMENTE", VerticalAlignment.Center, HorizontalAlignment.Center, "Green");
-                }
-                else
-                {
-                    // El stop loss no se estableció, cerrar la posición por seguridad
-                    Print("⚠️ ALERTA: Stop Loss no establecido. Cerrando posición por seguridad.");
-                    ClosePosition(result.Position);
-                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no establecido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-                }
-            }
-            else
-            {
-                Print($"Error al ejecutar la orden: {result.Error}");
-                Chart.DrawStaticText("ErrorText", $"⚠️ ERROR: {result.Error}", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
-            }
         }
         
         private void ApplyTrailingStop(TradeType tradeType)
@@ -515,7 +524,7 @@ namespace cAlgo.Robots
             }
         }
         
- private void UpdateTrailingStop(Position position, TradeType tradeType)
+        private void UpdateTrailingStop(Position position, TradeType tradeType)
         {
             if (tradeType == TradeType.Buy)
             {
@@ -553,20 +562,20 @@ namespace cAlgo.Robots
                     
                     Print($"Nueva distancia en pips para SL: {newStopLossInPips}");
                     
+                    // Verificar si el trailing stop es viable
+                    if (newStopLossInPips <= 0 || double.IsNaN(newStopLossInPips) || double.IsInfinity(newStopLossInPips))
+                    {
+                        Print("⚠️ El cálculo del nuevo stop loss produjo un valor inválido. No se actualizará.");
+                        return;
+                    }
+                    
+                    // Usar ClosePosition para cerrar y volver a abrir con nuevo SL
+                    var volume = position.VolumeInUnits;
+                    var label = position.Label;
+                    var takeProfit = position.TakeProfit;
+                    
                     try
                     {
-                        // Usar ClosePosition para cerrar y volver a abrir con nuevo SL
-                        var volume = position.VolumeInUnits;
-                        var label = position.Label;
-                        var takeProfit = position.TakeProfit;
-                        
-                        // Verificar doble validación de SL
-                        if (!IsValidStopLoss(newStopLossInPips, TradeType.Buy))
-                        {
-                            Print("⚠️ ALERTA: Nuevo Stop Loss no válido. Trailing stop no aplicado.");
-                            return;
-                        }
-                        
                         // Cerrar la posición actual
                         ClosePosition(position);
                         Print($"Posición cerrada para actualizar Stop Loss");
@@ -605,5 +614,3 @@ namespace cAlgo.Robots
                 }
             }
         }
-    }
-}
