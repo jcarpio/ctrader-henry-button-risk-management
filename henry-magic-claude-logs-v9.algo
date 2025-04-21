@@ -44,7 +44,7 @@ namespace cAlgo.Robots
             riskFactors = new Dictionary<string, double>();
             
             // Factores por defecto (1.0 significa sin ajuste)
-            riskFactors["Default"] = 1.0;
+            riskFactors["Default"] = 2.0;
             
             // Factores específicos por instrumento (basados en observaciones)
             // Nombre exacto del símbolo : factor de ajuste de riesgo
