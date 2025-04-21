@@ -1,0 +1,360 @@
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using cAlgo.API;
+using cAlgo.API.Indicators;
+using cAlgo.API.Internals;
+using cAlgo.Indicators;
+
+namespace cAlgo.Robots
+{
+    [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
+    public class ButtonEA : Robot
+    {
+        private Button buyButtonCYE;
+        private Button sellButtonCYE;
+        
+        // Constantes para validación
+        private const double MINIMUM_VALID_PIPS = 5.0; // Mínimo de pips para considerar un SL válido
+        private const double MINIMUM_LOT_SIZE = 0.01; // Lotaje mínimo por defecto
+        
+        protected override void OnStart()
+        {
+            // Crear botones de compra y venta (solo CYE)
+            buyButtonCYE = CreateButton("Buy CYE", 0, 30, 150, 35, "Green");
+            sellButtonCYE = CreateButton("Sell CYE", 160, 30, 150, 35, "Red");
+            
+            // Asignar eventos de clic a los botones
+            buyButtonCYE.Click += OnBuyButtonCYEClick;
+            sellButtonCYE.Click += OnSellButtonCYEClick;
+            
+            // Log de información detallada del instrumento
+            PrintDetailedInstrumentInfo();
+        }
+        
+        private void PrintDetailedInstrumentInfo()
+        {
+            Print("==================== INFORMACIÓN DETALLADA DEL INSTRUMENTO ====================");
+            Print($"Símbolo: {Symbol.Name}");
+            Print($"Descripción: {Symbol.Description}");
+            
+            // Información básica
+            Print($"PipSize: {Symbol.PipSize}");
+            Print($"PipValue: {Symbol.PipValue}");
+            Print($"Precio Bid actual: {Symbol.Bid}");
+            Print($"Precio Ask actual: {Symbol.Ask}");
+            Print($"Spread actual: {Symbol.Ask - Symbol.Bid} ({(Symbol.Ask - Symbol.Bid) / Symbol.PipSize} pips)");
+            
+            // Información sobre el tamaño de las órdenes
+            Print($"VolumeMin: {Symbol.VolumeMin} (Volumen mínimo permitido)");
+            Print($"VolumeMax: {Symbol.VolumeMax} (Volumen máximo permitido)");
+            Print($"VolumeStep: {Symbol.VolumeStep} (Incremento mínimo de volumen)");
+            
+            // Información sobre ticks y tamaños
+            Print($"TickSize: {Symbol.TickSize} (Tamaño mínimo de movimiento de precio)");
+            Print($"TickValue: {Symbol.TickValue} (Valor de un tick en la moneda de la cuenta)");
+            
+            // Información sobre márgenes
+            Print($"Margin inicial por 1 unidad: {Symbol.MarginPerUnits}");
+            
+            // Información sobre límites
+            Print($"MaxTradeVolume: {Symbol.MaxTradeVolume} (Volumen máximo para una orden)");
+            
+            // Información sobre la divisa
+            Print($"BaseCurrency: {Symbol.BaseCurrency}");
+            Print($"QuoteCurrency: {Symbol.QuoteCurrency}");
+            
+            // Calcular algunos valores útiles
+            double oneLotPipValue = Symbol.PipValue * (1.0 / Symbol.VolumeMin);
+            Print($"Valor del pip para el volumen mínimo ({Symbol.VolumeMin}): {oneLotPipValue}");
+            
+            // Calcular valor de 1 pip para volumen = 1
+            if (Symbol.VolumeMin != 1.0)
+            {
+                double onePipValueForVolumeOne = Symbol.PipValue * (1.0 / Symbol.VolumeMin);
+                Print($"Valor estimado del pip para volumen = 1: {onePipValueForVolumeOne}");
+            }
+            
+            Print("==============================================================================");
+        }
+        
+        private Button CreateButton(string text, int x, int y, int width, int height, string color)
+        {
+            var button = new Button
+            {
+                Text = text,
+                BackgroundColor = color,
+                ForegroundColor = "White",
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(x, y, 0, 0),
+                Width = width,
+                Height = height,
+                FontSize = 10
+            };
+            
+            Chart.AddControl(button);
+            return button;
+        }
+        
+        protected override void OnTick()
+        {
+            // Ya no hay trailing stop, por lo que este método queda vacío
+            // Se mantiene por si en el futuro se necesita añadir funcionalidad en OnTick
+        }
+        
+        private void OnBuyButtonCYEClick(ButtonClickEventArgs args)
+        {
+            Print("========== EJECUCIÓN BUY CYE ==========");
+            // Lógica para el botón de compra CYE
+            double spread = Symbol.Ask - Symbol.Bid;
+            double amount = 25;
+            
+            double previousLow = Bars.LowPrices.Last(1);
+            // Para compras, el stop debe estar justo por debajo del mínimo
+            double stopLossPrice = previousLow;
+            
+            // Logs para verificar los valores
+            Print($"Spread: {spread}");
+            Print($"Monto de riesgo: {amount}");
+            Print($"Precio Bid actual: {Symbol.Bid}");
+            Print($"Precio Ask actual: {Symbol.Ask}");
+            Print($"Low de la vela anterior: {previousLow}");
+            Print($"Stop Loss calculado (precio): {stopLossPrice}");
+            
+            // Calcular la distancia del stop loss en pips desde el precio de entrada (Ask para compras)
+            double stopLossInPips = (Symbol.Ask - stopLossPrice) / Symbol.PipSize;
+            Print($"Distancia en pips hasta SL: {stopLossInPips}");
+            
+            // Validar que el stop loss sea válido antes de calcular el lotaje
+            if (!IsValidStopLoss(stopLossInPips, TradeType.Buy))
+            {
+                Print("⚠️ ALERTA: Stop Loss no válido o demasiado cercano. Operación cancelada por seguridad.");
+                Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                return;
+            }
+            
+            double lotSize = CalculateLotSize(stopLossPrice, amount, TradeType.Buy);
+            Print($"Lot Size calculado: {lotSize}");
+            
+            // Validar que el lotaje sea válido
+            if (!IsValidLotSize(lotSize))
+            {
+                Print("⚠️ ALERTA: Lotaje calculado no válido. Operación cancelada por seguridad.");
+                Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Lotaje no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                return;
+            }
+            
+            // Imprimir información detallada sobre el cálculo del volumen
+            Print("---------- DETALLES DEL VOLUMEN CALCULADO ----------");
+            Print($"Volumen calculado: {lotSize}");
+            Print($"VolumeMin del símbolo: {Symbol.VolumeMin}");
+            Print($"VolumeMax del símbolo: {Symbol.VolumeMax}");
+            Print($"VolumeStep del símbolo: {Symbol.VolumeStep}");
+            
+            // Verificar si el volumen cumple con los requisitos del símbolo
+            bool isMultipleOfVolumeStep = Math.Abs(lotSize % Symbol.VolumeStep) < 0.0000001;
+            Print($"¿Es múltiplo del VolumeStep?: {isMultipleOfVolumeStep}");
+            
+            if (!isMultipleOfVolumeStep)
+            {
+                // Calcular el volumen ajustado
+                double adjustedLotSize = Math.Floor(lotSize / Symbol.VolumeStep) * Symbol.VolumeStep;
+                Print($"Volumen ajustado al VolumeStep: {adjustedLotSize}");
+            }
+            
+            try
+            {
+                // Usar StopLoss en PIPS
+                var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, lotSize, "Buy CYE", stopLossInPips, null);
+                VerifyOrderExecution(result, stopLossInPips);
+            }
+            catch (Exception ex)
+            {
+                Print($"Excepción al ejecutar la orden: {ex.Message}");
+                Chart.DrawStaticText("ErrorText", $"⚠️ ERROR: {ex.Message}", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+            }
+        }
+        
+        private void OnSellButtonCYEClick(ButtonClickEventArgs args)
+        {
+            Print("========== EJECUCIÓN SELL CYE ==========");
+            // Lógica para el botón de venta CYE
+            double spread = Symbol.Ask - Symbol.Bid;
+            double amount = 25;
+            
+            double previousHigh = Bars.HighPrices.Last(1);
+            // Para ventas, el stop debe estar justo por encima del máximo
+            double stopLossPrice = previousHigh;
+            
+            // Logs para verificar los valores
+            Print($"Spread: {spread}");
+            Print($"Monto de riesgo: {amount}");
+            Print($"Precio Bid actual: {Symbol.Bid}");
+            Print($"Precio Ask actual: {Symbol.Ask}");
+            Print($"High de la vela anterior: {previousHigh}");
+            Print($"Stop Loss calculado (precio): {stopLossPrice}");
+            
+            // Calcular la distancia del stop loss en pips desde el precio de entrada (Bid para ventas)
+            double stopLossInPips = (stopLossPrice - Symbol.Bid) / Symbol.PipSize;
+            Print($"Distancia en pips hasta SL: {stopLossInPips}");
+            
+            // Validar que el stop loss sea válido antes de calcular el lotaje
+            if (!IsValidStopLoss(stopLossInPips, TradeType.Sell))
+            {
+                Print("⚠️ ALERTA: Stop Loss no válido o demasiado cercano. Operación cancelada por seguridad.");
+                Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                return;
+            }
+            
+            double lotSize = CalculateLotSize(stopLossPrice, amount, TradeType.Sell);
+            Print($"Lot Size calculado: {lotSize}");
+            
+            // Validar que el lotaje sea válido
+            if (!IsValidLotSize(lotSize))
+            {
+                Print("⚠️ ALERTA: Lotaje calculado no válido. Operación cancelada por seguridad.");
+                Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Lotaje no válido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                return;
+            }
+            
+            // Imprimir información detallada sobre el cálculo del volumen
+            Print("---------- DETALLES DEL VOLUMEN CALCULADO ----------");
+            Print($"Volumen calculado: {lotSize}");
+            Print($"VolumeMin del símbolo: {Symbol.VolumeMin}");
+            Print($"VolumeMax del símbolo: {Symbol.VolumeMax}");
+            Print($"VolumeStep del símbolo: {Symbol.VolumeStep}");
+            
+            // Verificar si el volumen cumple con los requisitos del símbolo
+            bool isMultipleOfVolumeStep = Math.Abs(lotSize % Symbol.VolumeStep) < 0.0000001;
+            Print($"¿Es múltiplo del VolumeStep?: {isMultipleOfVolumeStep}");
+            
+            if (!isMultipleOfVolumeStep)
+            {
+                // Calcular el volumen ajustado
+                double adjustedLotSize = Math.Floor(lotSize / Symbol.VolumeStep) * Symbol.VolumeStep;
+                Print($"Volumen ajustado al VolumeStep: {adjustedLotSize}");
+            }
+            
+            try
+            {
+                // Usar StopLoss en PIPS
+                var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, lotSize, "Sell CYE", stopLossInPips, null);
+                VerifyOrderExecution(result, stopLossInPips);
+            }
+            catch (Exception ex)
+            {
+                Print($"Excepción al ejecutar la orden: {ex.Message}");
+                Chart.DrawStaticText("ErrorText", $"⚠️ ERROR: {ex.Message}", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+            }
+        }
+        
+        private double CalculateLotSize(double stopLossPrice, double riskAmount, TradeType tradeType)
+        {
+            Print("---------- CÁLCULO DE LOTAJE ----------");
+            // Usar el precio correcto según el tipo de operación
+            double entryPrice = (tradeType == TradeType.Buy) ? Symbol.Ask : Symbol.Bid;
+            double pipsRisk = Math.Abs(entryPrice - stopLossPrice) / Symbol.PipSize;
+            double pipValue = Symbol.PipValue;
+            
+            // Logs detallados del cálculo
+            Print($"Tipo de operación: {tradeType}");
+            Print($"Precio de entrada ({(tradeType == TradeType.Buy ? "Ask" : "Bid")}): {entryPrice}");
+            Print($"Precio de Stop Loss: {stopLossPrice}");
+            Print($"Diferencia en precio: {Math.Abs(entryPrice - stopLossPrice)}");
+            Print($"PipSize: {Symbol.PipSize}");
+            Print($"Riesgo en pips: {pipsRisk}");
+            Print($"Valor del pip: {pipValue}");
+            Print($"Monto de riesgo: {riskAmount}");
+            
+            // Verificar si hay un posible error de división por cero
+            if (pipsRisk <= 0 || pipValue <= 0 || double.IsNaN(pipsRisk) || double.IsInfinity(pipsRisk))
+            {
+                Print("⚠️ ADVERTENCIA! Valores no válidos para el cálculo del lotaje");
+                return -1; // Valor negativo para indicar error
+            }
+            
+            // Calcular el lotaje basado en el riesgo
+            double lotSize = riskAmount / (pipsRisk * pipValue);
+            Print($"Lotaje calculado (sin redondear): {lotSize}");
+            
+            // Verificar si el lotaje es razonable
+            if (lotSize <= 0 || double.IsNaN(lotSize) || double.IsInfinity(lotSize))
+            {
+                Print("⚠️ ERROR! Lotaje calculado no válido");
+                return -1; // Valor negativo para indicar error
+            }
+            
+            // Reducir el lotaje un 10% para compensar posibles desajustes
+            lotSize = lotSize * 0.9;
+            Print($"Lotaje ajustado (-10%): {lotSize}");
+            
+            // Normalizar el lotaje a 2 decimales
+            double roundedLotSize = Math.Round(lotSize, 2);
+            Print($"Lotaje final (redondeado): {roundedLotSize}");
+            
+            return roundedLotSize;
+        }
+        
+        private bool IsValidStopLoss(double stopLossInPips, TradeType tradeType)
+        {
+            // Verificar que el stop loss sea un valor válido y no demasiado cercano al precio actual
+            if (stopLossInPips <= 0 || double.IsNaN(stopLossInPips) || double.IsInfinity(stopLossInPips))
+            {
+                Print("⚠️ Stop Loss en pips no válido: " + stopLossInPips);
+                return false;
+            }
+            
+            // Verificar que el stop loss sea de al menos MINIMUM_VALID_PIPS pips
+            if (stopLossInPips < MINIMUM_VALID_PIPS)
+            {
+                Print($"⚠️ Stop Loss demasiado cercano: {stopLossInPips} pips (mínimo recomendado: {MINIMUM_VALID_PIPS} pips)");
+                return false;
+            }
+            
+            return true;
+        }
+        
+        private bool IsValidLotSize(double lotSize)
+        {
+            // Verificar que el lotaje sea un valor válido y positivo
+            if (lotSize < MINIMUM_LOT_SIZE || double.IsNaN(lotSize) || double.IsInfinity(lotSize))
+            {
+                Print("⚠️ Lotaje no válido: " + lotSize);
+                return false;
+            }
+            
+            return true;
+        }
+        
+        private void VerifyOrderExecution(TradeResult result, double expectedStopLossInPips)
+        {
+            if (result.IsSuccessful)
+            {
+                Print($"Orden ejecutada correctamente. Position ID: {result.Position.Id}");
+                Print($"Precio de entrada: {result.Position.EntryPrice}");
+                
+                // Verificar que el stop loss se haya establecido correctamente
+                if (result.Position.StopLoss.HasValue)
+                {
+                    Print($"Stop Loss: {result.Position.StopLoss}");
+                    
+                    // Todo correcto, mantener la posición
+                    Chart.DrawStaticText("SuccessText", "✅ OPERACIÓN EJECUTADA CORRECTAMENTE", VerticalAlignment.Center, HorizontalAlignment.Center, "Green");
+                }
+                else
+                {
+                    // El stop loss no se estableció, cerrar la posición por seguridad
+                    Print("⚠️ ALERTA: Stop Loss no establecido. Cerrando posición por seguridad.");
+                    ClosePosition(result.Position);
+                    Chart.DrawStaticText("AlertText", "⚠️ OPERACIÓN CANCELADA: Stop Loss no establecido", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+                }
+            }
+            else
+            {
+                Print($"Error al ejecutar la orden: {result.Error}");
+                Chart.DrawStaticText("ErrorText", $"⚠️ ERROR: {result.Error}", VerticalAlignment.Center, HorizontalAlignment.Center, "Red");
+            }
+        }
+    }
+}
