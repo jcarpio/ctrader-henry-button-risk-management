@@ -45,35 +45,32 @@ namespace cAlgo.Robots
             Print($"Precio Ask actual: {Symbol.Ask}");
             Print($"Spread actual: {Symbol.Ask - Symbol.Bid} ({(Symbol.Ask - Symbol.Bid) / Symbol.PipSize} pips)");
             
-            // Información sobre el tamaño de las órdenes
-            Print($"VolumeMin: {Symbol.VolumeMin} (Volumen mínimo permitido)");
-            Print($"VolumeMax: {Symbol.VolumeMax} (Volumen máximo permitido)");
-            Print($"VolumeStep: {Symbol.VolumeStep} (Incremento mínimo de volumen)");
+            // Información sobre el tamaño de las órdenes (usando las propiedades actualizadas)
+            Print($"VolumeInUnitsMin: {Symbol.VolumeInUnitsMin} (Volumen mínimo permitido)");
+            Print($"VolumeInUnitsMax: {Symbol.VolumeInUnitsMax} (Volumen máximo permitido)");
+            Print($"VolumeInUnitsStep: {Symbol.VolumeInUnitsStep} (Incremento mínimo de volumen)");
             
             // Información sobre ticks y tamaños
             Print($"TickSize: {Symbol.TickSize} (Tamaño mínimo de movimiento de precio)");
             Print($"TickValue: {Symbol.TickValue} (Valor de un tick en la moneda de la cuenta)");
             
-            // Información sobre márgenes
-            Print($"Margin inicial por 1 unidad: {Symbol.MarginPerUnits}");
-            
-            // Información sobre límites
-            Print($"MaxTradeVolume: {Symbol.MaxTradeVolume} (Volumen máximo para una orden)");
-            
-            // Información sobre la divisa
-            Print($"BaseCurrency: {Symbol.BaseCurrency}");
-            Print($"QuoteCurrency: {Symbol.QuoteCurrency}");
-            
             // Calcular algunos valores útiles
-            double oneLotPipValue = Symbol.PipValue * (1.0 / Symbol.VolumeMin);
-            Print($"Valor del pip para el volumen mínimo ({Symbol.VolumeMin}): {oneLotPipValue}");
+            double oneLotPipValue = Symbol.PipValue * (1.0 / Symbol.VolumeInUnitsMin);
+            Print($"Valor del pip para el volumen mínimo ({Symbol.VolumeInUnitsMin}): {oneLotPipValue}");
             
             // Calcular valor de 1 pip para volumen = 1
-            if (Symbol.VolumeMin != 1.0)
+            if (Symbol.VolumeInUnitsMin != 1.0)
             {
-                double onePipValueForVolumeOne = Symbol.PipValue * (1.0 / Symbol.VolumeMin);
+                double onePipValueForVolumeOne = Symbol.PipValue * (1.0 / Symbol.VolumeInUnitsMin);
                 Print($"Valor estimado del pip para volumen = 1: {onePipValueForVolumeOne}");
             }
+            
+            // Información de la cuenta actual
+            Print("---------- INFORMACIÓN DE LA CUENTA ----------");
+            Print($"Balance: {Account.Balance}");
+            Print($"Equity: {Account.Equity}");
+            Print($"Divisa de la cuenta: {Account.Asset.Name}");
+            Print("---------------------------------------------");
             
             Print("==============================================================================");
         }
@@ -148,19 +145,19 @@ namespace cAlgo.Robots
             // Imprimir información detallada sobre el cálculo del volumen
             Print("---------- DETALLES DEL VOLUMEN CALCULADO ----------");
             Print($"Volumen calculado: {lotSize}");
-            Print($"VolumeMin del símbolo: {Symbol.VolumeMin}");
-            Print($"VolumeMax del símbolo: {Symbol.VolumeMax}");
-            Print($"VolumeStep del símbolo: {Symbol.VolumeStep}");
+            Print($"VolumeInUnitsMin del símbolo: {Symbol.VolumeInUnitsMin}");
+            Print($"VolumeInUnitsMax del símbolo: {Symbol.VolumeInUnitsMax}");
+            Print($"VolumeInUnitsStep del símbolo: {Symbol.VolumeInUnitsStep}");
             
             // Verificar si el volumen cumple con los requisitos del símbolo
-            bool isMultipleOfVolumeStep = Math.Abs(lotSize % Symbol.VolumeStep) < 0.0000001;
-            Print($"¿Es múltiplo del VolumeStep?: {isMultipleOfVolumeStep}");
+            bool isMultipleOfVolumeStep = Math.Abs(lotSize % Symbol.VolumeInUnitsStep) < 0.0000001;
+            Print($"¿Es múltiplo del VolumeInUnitsStep?: {isMultipleOfVolumeStep}");
             
             if (!isMultipleOfVolumeStep)
             {
                 // Calcular el volumen ajustado
-                double adjustedLotSize = Math.Floor(lotSize / Symbol.VolumeStep) * Symbol.VolumeStep;
-                Print($"Volumen ajustado al VolumeStep: {adjustedLotSize}");
+                double adjustedLotSize = Math.Floor(lotSize / Symbol.VolumeInUnitsStep) * Symbol.VolumeInUnitsStep;
+                Print($"Volumen ajustado al VolumeInUnitsStep: {adjustedLotSize}");
             }
             
             try
@@ -221,19 +218,19 @@ namespace cAlgo.Robots
             // Imprimir información detallada sobre el cálculo del volumen
             Print("---------- DETALLES DEL VOLUMEN CALCULADO ----------");
             Print($"Volumen calculado: {lotSize}");
-            Print($"VolumeMin del símbolo: {Symbol.VolumeMin}");
-            Print($"VolumeMax del símbolo: {Symbol.VolumeMax}");
-            Print($"VolumeStep del símbolo: {Symbol.VolumeStep}");
+            Print($"VolumeInUnitsMin del símbolo: {Symbol.VolumeInUnitsMin}");
+            Print($"VolumeInUnitsMax del símbolo: {Symbol.VolumeInUnitsMax}");
+            Print($"VolumeInUnitsStep del símbolo: {Symbol.VolumeInUnitsStep}");
             
             // Verificar si el volumen cumple con los requisitos del símbolo
-            bool isMultipleOfVolumeStep = Math.Abs(lotSize % Symbol.VolumeStep) < 0.0000001;
-            Print($"¿Es múltiplo del VolumeStep?: {isMultipleOfVolumeStep}");
+            bool isMultipleOfVolumeStep = Math.Abs(lotSize % Symbol.VolumeInUnitsStep) < 0.0000001;
+            Print($"¿Es múltiplo del VolumeInUnitsStep?: {isMultipleOfVolumeStep}");
             
             if (!isMultipleOfVolumeStep)
             {
                 // Calcular el volumen ajustado
-                double adjustedLotSize = Math.Floor(lotSize / Symbol.VolumeStep) * Symbol.VolumeStep;
-                Print($"Volumen ajustado al VolumeStep: {adjustedLotSize}");
+                double adjustedLotSize = Math.Floor(lotSize / Symbol.VolumeInUnitsStep) * Symbol.VolumeInUnitsStep;
+                Print($"Volumen ajustado al VolumeInUnitsStep: {adjustedLotSize}");
             }
             
             try
